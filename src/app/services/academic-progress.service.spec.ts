@@ -1,5 +1,6 @@
+
 import { AcademicProgressService } from './academic-progress.service';
-import { ChartMargin, ExamRecord, ProcessedExamRecord } from '../models/academic-progress.models';
+import { ChartMargin, ExampleData, ExamRecord, ProcessedExamRecord } from '../models/academic-progress.models';
 
 describe('AcademicProgressService', () => {
   let service: AcademicProgressService;
@@ -8,8 +9,26 @@ describe('AcademicProgressService', () => {
     service = new AcademicProgressService();
   });
 
-  it('should expose the default records', (): void => {
-    expect(service.getDefaultRecords().length).toBeGreaterThan(0);
+  it('should map json records', (): void => {
+    expect(service.mapJsonRecord({ date: '2024-01-02', name: 'Exam', examsCount: 1, ects: 5, grade: '1,0' }).name).toBe('Exam');
+  });
+
+  it('should parse example data', (): void => {
+    const exampleData: ExampleData = {
+      appTitle: 'MagnetarSophia',
+      subtitle: 'Academic Progress Analysis',
+      degreeTitle: 'B.Sc. Software Development',
+      universityName: 'IU International University',
+      startDate: '2023-05-24',
+      totalExamTarget: 36,
+      totalEctsTarget: 180,
+      records: [{ date: '2024-01-02', name: 'Exam', examsCount: 1, ects: 5, grade: '1,0' }],
+    };
+
+    const parsed = service.parseExampleData(exampleData);
+
+    expect(parsed.startDate.getFullYear()).toBe(2023);
+    expect(parsed.records.length).toBe(1);
   });
 
   it('should sort records by date', (): void => {
@@ -94,17 +113,7 @@ describe('AcademicProgressService', () => {
     chartSurface.appendChild(target);
     document.body.appendChild(chartSurface);
 
-    chartSurface.getBoundingClientRect = (): DOMRect => ({
-      x: 0,
-      y: 0,
-      width: 100,
-      height: 100,
-      top: 8,
-      left: 6,
-      right: 106,
-      bottom: 108,
-      toJSON: (): string => '',
-    });
+    chartSurface.getBoundingClientRect = (): DOMRect => ({ x: 0, y: 0, width: 100, height: 100, top: 8, left: 6, right: 106, bottom: 108, toJSON: (): string => '' });
 
     const validEvent = new MouseEvent('mouseenter', { clientX: 20, clientY: 25 });
     Object.defineProperty(validEvent, 'target', { value: target });

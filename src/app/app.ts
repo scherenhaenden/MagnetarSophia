@@ -1,7 +1,7 @@
 
 import { CommonModule } from '@angular/common';
-import { Component, computed, inject, signal } from '@angular/core';
-import { AxisYear, ChartMargin, ChartPoint, ExamRecord, ProcessedExamRecord, TooltipPosition } from './models/academic-progress.models';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { AxisYear, ChartMargin, ChartPoint, ExampleData, ExamRecord, ProcessedExamRecord, TooltipPosition } from './models/academic-progress.models';
 import { AcademicProgressService } from './services/academic-progress.service';
 
 @Component({
@@ -13,26 +13,26 @@ import { AcademicProgressService } from './services/academic-progress.service';
     <header class="hero-card">
       <div>
         <p class="eyebrow">Academic Analytics Workspace</p>
-        <h1>MagnetarSophia</h1>
-        <p class="subtitle">Academic Progress Analysis · {{ degreeTitle }} - IU International University</p>
+        <h1>{{ appTitle() }}</h1>
+        <p class="subtitle">{{ subtitle() }} · {{ degreeTitle() }} - {{ universityName() }}</p>
       </div>
       <div class="hero-badges">
-        <span class="badge">Start: {{ startDate | date: 'dd MMM yyyy' }}</span>
-        <span class="badge badge-highlight">Target: {{ totalEctsTarget }} ECTS ({{ totalExamTarget }} exams)</span>
+        <span class="badge">Start: {{ startDate() | date: 'dd MMM yyyy' }}</span>
+        <span class="badge badge-highlight">Target: {{ totalEctsTarget() }} ECTS ({{ totalExamTarget() }} exams)</span>
       </div>
     </header>
 
     <section class="stats-grid">
       <article class="stat-card">
         <p class="stat-label">Completed exams</p>
-        <p class="stat-value">{{ currentExams() }} <span>/ {{ totalExamTarget }}</span></p>
-        <div class="progress-bar"><div class="progress-fill progress-fill-blue" [style.width.%]="(currentExams() / totalExamTarget) * 100"></div></div>
+        <p class="stat-value">{{ currentExams() }} <span>/ {{ totalExamTarget() }}</span></p>
+        <div class="progress-bar"><div class="progress-fill progress-fill-blue" [style.width.%]="(currentExams() / totalExamTarget()) * 100"></div></div>
       </article>
 
       <article class="stat-card">
         <p class="stat-label">ECTS credits</p>
-        <p class="stat-value">{{ earnedEcts() }} <span>/ {{ totalEctsTarget }}</span></p>
-        <div class="progress-bar"><div class="progress-fill progress-fill-indigo" [style.width.%]="(earnedEcts() / totalEctsTarget) * 100"></div></div>
+        <p class="stat-value">{{ earnedEcts() }} <span>/ {{ totalEctsTarget() }}</span></p>
+        <div class="progress-bar"><div class="progress-fill progress-fill-indigo" [style.width.%]="(earnedEcts() / totalEctsTarget()) * 100"></div></div>
       </article>
 
       <article class="stat-card">
@@ -109,8 +109,8 @@ import { AcademicProgressService } from './services/academic-progress.service';
             <circle [attr.cx]="point.x" [attr.cy]="point.y" r="6" class="chart-point" (mouseenter)="hoverPoint(point, $event)" (mouseleave)="hoverPoint(null, null)"></circle>
           }
 
-          <circle [attr.cx]="getX(projectedDays())" [attr.cy]="getY(totalExamTarget)" r="5" class="chart-endpoint chart-endpoint-historical"></circle>
-          <circle [attr.cx]="getX(recentProjectedDays())" [attr.cy]="getY(totalExamTarget)" r="6" class="chart-endpoint chart-endpoint-recent"></circle>
+          <circle [attr.cx]="getX(projectedDays())" [attr.cy]="getY(totalExamTarget())" r="5" class="chart-endpoint chart-endpoint-historical"></circle>
+          <circle [attr.cx]="getX(recentProjectedDays())" [attr.cy]="getY(totalExamTarget())" r="6" class="chart-endpoint chart-endpoint-recent"></circle>
         </svg>
 
         @if (hoveredData()) {
@@ -123,7 +123,7 @@ import { AcademicProgressService } from './services/academic-progress.service';
               </div>
               <div>
                 <dt>Exam</dt>
-                <dd>{{ hoveredData()?.record?.examsCount }} / {{ totalExamTarget }}</dd>
+                <dd>{{ hoveredData()?.record?.examsCount }} / {{ totalExamTarget() }}</dd>
               </div>
               <div>
                 <dt>ECTS</dt>
@@ -560,73 +560,85 @@ h2 {
 }
   `]
 })
-export class App {
-  public readonly degreeTitle = 'B.Sc. Software Development';
-  public readonly totalExamTarget = 36;
-  public readonly totalEctsTarget = 180;
-  public readonly startDate = new Date(2023, 4, 24);
+export class App implements OnInit {
+  public readonly appTitle = signal<string>('MagnetarSophia');
+  public readonly subtitle = signal<string>('Academic Progress Analysis');
+  public readonly degreeTitle = signal<string>('B.Sc. Software Development');
+  public readonly universityName = signal<string>('IU International University');
+  public readonly totalExamTarget = signal<number>(36);
+  public readonly totalEctsTarget = signal<number>(180);
+  public readonly startDate = signal<Date>(new Date(2023, 4, 24));
   public readonly svgWidth = 1000;
   public readonly svgHeight = 500;
   public readonly margin: ChartMargin = { top: 40, right: 40, bottom: 60, left: 60 };
   public readonly innerWidth = this.svgWidth - this.margin.left - this.margin.right;
   public readonly innerHeight = this.svgHeight - this.margin.top - this.margin.bottom;
   public readonly yAxisLevels: number[] = [0, 6, 12, 18, 24, 30, 36];
-  protected readonly academicProgressService: AcademicProgressService = inject(AcademicProgressService);
-  public readonly rawRecords = signal<ExamRecord[]>(this.academicProgressService.getDefaultRecords());
-  public readonly jsonContent = signal<string>(this.academicProgressService.buildJson(this.rawRecords()));
+  protected readonly academicProgressService = inject(AcademicProgressService);
+  public readonly rawRecords = signal<ExamRecord[]>([]);
+  public readonly jsonContent = signal<string>('[]');
   public readonly jsonError = signal<string>('');
   public readonly jsonSuccess = signal<boolean>(false);
   public readonly hoveredData = signal<ChartPoint | null>(null);
   public readonly tooltipPos = signal<TooltipPosition>({ x: 0, y: 0 });
-  public readonly processedRecords = computed<ProcessedExamRecord[]>(() => this.academicProgressService.processRecords(this.startDate, this.rawRecords()));
+  public readonly processedRecords = computed<ProcessedExamRecord[]>(() => this.academicProgressService.processRecords(this.startDate(), this.rawRecords()));
   public readonly currentExams = computed<number>(() => this.academicProgressService.calculateCurrentExams(this.processedRecords()));
   public readonly earnedEcts = computed<number>(() => this.academicProgressService.calculateEarnedEcts(this.processedRecords()));
   public readonly pace = computed<number>(() => this.academicProgressService.calculatePace(this.processedRecords()));
   public readonly recentPace = computed<number>(() => this.academicProgressService.calculateRecentPace(this.processedRecords()));
-  public readonly projectedDays = computed<number>(() => this.academicProgressService.calculateProjectedDays(this.totalExamTarget, this.pace()));
-  public readonly recentProjectedDays = computed<number>(() => this.academicProgressService.calculateRecentProjectedDays(this.processedRecords(), this.totalExamTarget, this.recentPace()));
-  public readonly projectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate, this.projectedDays()));
-  public readonly recentProjectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate, this.recentProjectedDays()));
+  public readonly projectedDays = computed<number>(() => this.academicProgressService.calculateProjectedDays(this.totalExamTarget(), this.pace()));
+  public readonly recentProjectedDays = computed<number>(() => this.academicProgressService.calculateRecentProjectedDays(this.processedRecords(), this.totalExamTarget(), this.recentPace()));
+  public readonly projectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate(), this.projectedDays()));
+  public readonly recentProjectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate(), this.recentProjectedDays()));
   public readonly dynamicMaxDays = computed<number>(() => this.academicProgressService.calculateDynamicMaxDays(2190, this.projectedDays(), this.recentProjectedDays()));
   public readonly xAxisYears = computed<AxisYear[]>(() => this.academicProgressService.buildAxisYears(this.dynamicMaxDays()));
-  public readonly mappedPoints = computed<ChartPoint[]>(() => this.academicProgressService.mapPoints(this.processedRecords(), this.dynamicMaxDays(), this.totalExamTarget, this.margin, this.innerWidth, this.innerHeight));
+  public readonly mappedPoints = computed<ChartPoint[]>(() => this.academicProgressService.mapPoints(this.processedRecords(), this.dynamicMaxDays(), this.totalExamTarget(), this.margin, this.innerWidth, this.innerHeight));
   public readonly actualPath = computed<string>(() => this.academicProgressService.buildActualPath(this.mappedPoints(), this.getX(0), this.getY(0)));
-  public readonly projectionPath = computed<string>(() => this.academicProgressService.buildProjectionPath(this.getX(0), this.getY(0), this.getX(this.projectedDays()), this.getY(this.totalExamTarget)));
+  public readonly projectionPath = computed<string>(() => this.academicProgressService.buildProjectionPath(this.getX(0), this.getY(0), this.getX(this.projectedDays()), this.getY(this.totalExamTarget())));
   public readonly recentProjectionPath = computed<string>(() => {
-    const points: ChartPoint[] = this.mappedPoints();
-    if (points.length === 0) {
-      return '';
-    }
-    const lastPoint: ChartPoint = points[points.length - 1];
-    return this.academicProgressService.buildProjectionPath(lastPoint.x, lastPoint.y, this.getX(this.recentProjectedDays()), this.getY(this.totalExamTarget));
+    const points = this.mappedPoints();
+    if (points.length === 0) return '';
+    const lastPoint = points[points.length - 1];
+    return this.academicProgressService.buildProjectionPath(lastPoint.x, lastPoint.y, this.getX(this.recentProjectedDays()), this.getY(this.totalExamTarget()));
   });
+
+  public async ngOnInit(): Promise<void> {
+    const response: Response = await fetch('/example.json');
+    const data: ExampleData = await response.json();
+    const parsed = this.academicProgressService.parseExampleData(data);
+    this.appTitle.set(data.appTitle);
+    this.subtitle.set(data.subtitle);
+    this.degreeTitle.set(data.degreeTitle);
+    this.universityName.set(data.universityName);
+    this.totalExamTarget.set(data.totalExamTarget);
+    this.totalEctsTarget.set(data.totalEctsTarget);
+    this.startDate.set(parsed.startDate);
+    this.rawRecords.set(parsed.records);
+    this.jsonContent.set(this.academicProgressService.buildJson(parsed.records));
+  }
 
   public getX(days: number): number {
     return this.margin.left + (days / this.dynamicMaxDays()) * this.innerWidth;
   }
 
   public getY(examCount: number): number {
-    return this.margin.top + this.innerHeight - (examCount / this.totalExamTarget) * this.innerHeight;
+    return this.margin.top + this.innerHeight - (examCount / this.totalExamTarget()) * this.innerHeight;
   }
 
   public buildIdealPath(dayCount: number): string {
-    return this.academicProgressService.buildProjectionPath(this.getX(0), this.getY(0), this.getX(dayCount), this.getY(this.totalExamTarget));
+    return this.academicProgressService.buildProjectionPath(this.getX(0), this.getY(0), this.getX(dayCount), this.getY(this.totalExamTarget()));
   }
 
   public hoverPoint(point: ChartPoint | null, event: MouseEvent | null): void {
     this.hoveredData.set(point);
-    if (!event) {
-      return;
-    }
-    const tooltipPosition: TooltipPosition | null = this.academicProgressService.getTooltipPosition(event);
-    if (tooltipPosition) {
-      this.tooltipPos.set(tooltipPosition);
-    }
+    if (!event) return;
+    const tooltipPosition = this.academicProgressService.getTooltipPosition(event);
+    if (tooltipPosition) this.tooltipPos.set(tooltipPosition);
   }
 
   public applyJson(json: string): void {
     try {
-      const parsedRecords: ExamRecord[] = this.academicProgressService.parseJson(json);
+      const parsedRecords = this.academicProgressService.parseJson(json);
       this.jsonError.set('');
       this.jsonSuccess.set(true);
       this.rawRecords.set(parsedRecords);

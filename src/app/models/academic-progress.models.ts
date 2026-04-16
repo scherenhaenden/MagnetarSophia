@@ -1,3 +1,23 @@
+
+export interface JsonExamRecord {
+  date: string;
+  name: string;
+  examsCount: number;
+  ects: number;
+  grade: string;
+}
+
+export interface ExampleData {
+  appTitle: string;
+  subtitle: string;
+  degreeTitle: string;
+  universityName: string;
+  startDate: string;
+  totalExamTarget: number;
+  totalEctsTarget: number;
+  records: JsonExamRecord[];
+}
+
 export interface ExamRecord {
   date: Date;
   name: string;
