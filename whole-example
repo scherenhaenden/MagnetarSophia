@@ -1,0 +1,377 @@
+import { Component, computed, signal } from '@angular/core';
+import { CommonModule } from '@angular/common';
+
+interface ExamRecord {
+date: Date;
+name: string;
+examsCount: number;
+ects: number;
+grade: string;
+daysFromStart?: number;
+}
+
+interface Point {
+x: number;
+y: number;
+record: ExamRecord;
+}
+
+@Component({
+selector: 'app-root',
+imports: [CommonModule],
+template: `
+<div class="min-h-screen bg-slate-950 p-4 md:p-8 font-sans text-slate-200">
+    <div class="max-w-6xl mx-auto space-y-6">
+
+        <!-- Cabecera -->
+        <div
+            class="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-white">Análisis de Progreso Académico</h1>
+                <p class="text-slate-400">B.Sc. Softwareentwicklung - IU International University</p>
+            </div>
+            <div class="flex gap-3 text-sm font-medium">
+                <span class="px-3 py-1 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-full">Inicio: 24
+                    Mayo 2023</span>
+                <span
+                    class="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">Meta:
+                    180 ECTS (36 Exámenes)</span>
+            </div>
+        </div>
+
+        <!-- Tarjetas de Estadísticas -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800">
+                <div class="text-slate-400 text-sm font-medium mb-1">Exámenes Aprobados</div>
+                <div class="text-3xl font-bold text-white">{{ currentExams() }} <span
+                        class="text-lg text-slate-500 font-normal">/ 36</span></div>
+                <div class="w-full bg-slate-800 rounded-full h-2 mt-3">
+                    <div class="bg-blue-500 h-2 rounded-full" [style.width.%]="(currentExams() / 36) * 100"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800">
+                <div class="text-slate-400 text-sm font-medium mb-1">Créditos ECTS</div>
+                <div class="text-3xl font-bold text-white">{{ currentExams() * 5 }} <span
+                        class="text-lg text-slate-500 font-normal">/ 180</span></div>
+                <div class="w-full bg-slate-800 rounded-full h-2 mt-3">
+                    <div class="bg-indigo-500 h-2 rounded-full" [style.width.%]="((currentExams() * 5) / 180) * 100">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800">
+                <div class="text-slate-400 text-sm font-medium mb-2">Ritmo (Días / Examen)</div>
+                <div class="flex justify-between items-end mb-1">
+                    <div>
+                        <div class="text-xs text-slate-500">Histórico Total</div>
+                        <div class="text-xl font-bold text-slate-300">{{ pace() | number:'1.0-0' }}</div>
+                        <div class="text-[10px] text-slate-500 mt-1">~{{ (365 / pace()) | number:'1.1-1' }} exám/año
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-cyan-400 font-bold uppercase tracking-wider">Tendencia Actual</div>
+                        <div class="text-2xl font-bold text-cyan-400">{{ recentPace() | number:'1.0-1' }}</div>
+                        <div class="text-[10px] text-cyan-500/70 mt-1">~{{ (365 / recentPace()) | number:'1.1-1' }}
+                            exám/año</div>
+                    </div>
+                </div>
+                <div class="w-full h-1 bg-slate-800 rounded-full mt-2 overflow-hidden">
+                    <div class="bg-gradient-to-r from-slate-600 to-cyan-400 h-full" style="width: 100%"></div>
+                </div>
+            </div>
+
+            <div class="bg-slate-900 p-5 rounded-2xl shadow-sm border border-slate-800">
+                <div class="text-slate-400 text-sm font-medium mb-2">Fecha Final Estimada</div>
+                <div class="flex justify-between items-end mb-1">
+                    <div>
+                        <div class="text-xs text-slate-500">Media Global</div>
+                        <div class="text-lg font-bold text-slate-300">{{ projectedDate() | date:'MMM yyyy' }}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-cyan-400 font-bold uppercase tracking-wider">Según Derivada</div>
+                        <div class="text-xl font-bold text-cyan-400">{{ recentProjectedDate() | date:'MMM yyyy' }}</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección del Gráfico -->
+        <div class="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800 relative">
+            <h2 class="text-lg font-bold text-white mb-6">Curva de Progreso (Días vs Exámenes)</h2>
+
+            <!-- Leyenda -->
+            <div class="flex flex-wrap gap-4 mb-6 text-sm">
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-blue-500"></div><span class="text-slate-300">Progreso
+                        Real</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full border-2 border-dashed border-cyan-400"></div><span
+                        class="text-cyan-400 font-medium">Tendencia Reciente</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full border-2 border-dashed border-slate-500"></div><span
+                        class="text-slate-400">Promedio Histórico</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-emerald-500/40"></div><span class="text-slate-400 text-xs">Ideal
+                        3 años</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-amber-500/40"></div><span class="text-slate-400 text-xs">Ideal 4
+                        años</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-3 h-3 rounded-full bg-orange-500/40"></div><span class="text-slate-400 text-xs">Ideal
+                        6 años</span>
+                </div>
+            </div>
+
+            <!-- Gráfico SVG -->
+            <div class="relative w-full aspect-[2/1] min-h-[400px] overflow-visible">
+                <svg class="w-full h-full" viewBox="0 0 1000 500" preserveAspectRatio="none">
+                    <!-- Líneas de cuadrícula -->
+                    @for (level of yAxisLevels(); track level) {
+                    <line x1="60" [attr.y1]="getY(level)" x2="960" [attr.y2]="getY(level)" stroke="#334155"
+                        stroke-width="1" stroke-dasharray="4" />
+                    <text x="50" [attr.y]="getY(level) + 4" text-anchor="end"
+                        class="text-xs fill-slate-500 font-mono">{{ level }}</text>
+                    }
+                    @for (year of xAxisYears(); track year.days) {
+                    <line [attr.x1]="getX(year.days)" y1="40" [attr.x2]="getX(year.days)" y2="440" stroke="#334155"
+                        stroke-width="1" />
+                    <text [attr.x]="getX(year.days)" y="460" text-anchor="middle" class="text-xs fill-slate-400">{{
+                        year.label }}</text>
+                    }
+
+                    <!-- Ejes -->
+                    <line x1="60" y1="440" x2="960" y2="440" stroke="#475569" stroke-width="2" />
+                    <line x1="60" y1="40" x2="60" y2="440" stroke="#475569" stroke-width="2" />
+
+                    <!-- Curvas Ideales -->
+                    <path [attr.d]="'M ' + getX(0) + ' ' + getY(0) + ' L ' + getX(1095) + ' ' + getY(36)"
+                        stroke="#10b981" stroke-width="2" fill="none" opacity="0.25" />
+                    <path [attr.d]="'M ' + getX(0) + ' ' + getY(0) + ' L ' + getX(1460) + ' ' + getY(36)"
+                        stroke="#f59e0b" stroke-width="2" fill="none" opacity="0.25" />
+                    <path [attr.d]="'M ' + getX(0) + ' ' + getY(0) + ' L ' + getX(2190) + ' ' + getY(36)"
+                        stroke="#f97316" stroke-width="2" fill="none" opacity="0.25" />
+
+                    <!-- Líneas de Proyección -->
+                    <path [attr.d]="projectionPath()" stroke="#64748b" stroke-width="2" stroke-dasharray="6 6"
+                        fill="none" />
+                    <path [attr.d]="recentProjectionPath()" stroke="#22d3ee" stroke-width="3" stroke-dasharray="8 6"
+                        fill="none" />
+
+                    <!-- Línea de Progreso Real -->
+                    <path [attr.d]="actualPath()" stroke="#3b82f6" stroke-width="4" stroke-linecap="round"
+                        stroke-linejoin="round" fill="none" />
+
+                    <!-- Puntos de Datos -->
+                    @for (pt of mappedPoints(); track pt.record.date.getTime()) {
+                    <circle [attr.cx]="pt.x" [attr.cy]="pt.y" r="6"
+                        class="fill-slate-900 stroke-blue-500 stroke-[3px] cursor-pointer hover:stroke-cyan-400 hover:r-[8px] transition-all duration-200"
+                        (mouseenter)="hoverPoint(pt, $event)" (mouseleave)="hoverPoint(null, null)" />
+                    }
+
+                    <!-- Puntos de Fin de Proyección -->
+                    <circle [attr.cx]="getX(projectedDays())" [attr.cy]="getY(36)" r="5"
+                        class="fill-slate-900 stroke-slate-500 stroke-[3px] border-dashed" />
+                    <circle [attr.cx]="getX(recentProjectedDays())" [attr.cy]="getY(36)" r="6"
+                        class="fill-slate-900 stroke-cyan-400 stroke-[3px] border-dashed" />
+                </svg>
+
+                <!-- Tooltip -->
+                @if (hoveredData()) {
+                <div class="absolute z-10 bg-slate-800 border border-slate-700 text-slate-200 p-3 rounded-lg shadow-2xl text-sm pointer-events-none transform -translate-x-1/2 -translate-y-[120%]"
+                    [style.left.px]="tooltipPos().x" [style.top.px]="tooltipPos().y" style="min-width: 220px;">
+                    <div class="font-bold text-cyan-400 mb-1 border-b border-slate-700 pb-1">{{
+                        hoveredData()?.record?.name }}</div>
+                    <div class="grid grid-cols-2 gap-1 mt-2">
+                        <div class="text-slate-400 text-[11px]">Fecha:</div>
+                        <div class="text-right">{{ hoveredData()?.record?.date | date:'dd.MM.yyyy' }}</div>
+                        <div class="text-slate-400 text-[11px]">Examen #:</div>
+                        <div class="text-right font-bold text-white">{{ hoveredData()?.record?.examsCount }} / 36</div>
+                        <div class="text-slate-400 text-[11px]">Nota:</div>
+                        <div class="text-right text-emerald-400 font-bold">{{ hoveredData()?.record?.grade }}</div>
+                    </div>
+                </div>
+                }
+            </div>
+        </div>
+
+        <!-- Editor JSON -->
+        <div class="bg-slate-900 p-6 rounded-2xl shadow-sm border border-slate-800">
+            <h2 class="text-lg font-bold text-white mb-2">Editor de Datos (JSON)</h2>
+            <div class="bg-slate-800/50 border border-slate-700 rounded-xl p-4 mb-4 text-sm text-slate-400">
+                <p>Datos sincronizados con tu último Transcript. Curva de 6 años habilitada.</p>
+            </div>
+            <textarea #jsonTextarea
+                class="w-full h-80 bg-slate-950 text-slate-300 font-mono text-xs p-4 rounded-xl border border-slate-700 focus:border-cyan-500 outline-none resize-none"
+                [value]="jsonContent()"></textarea>
+            <div class="mt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <button (click)="applyJson(jsonTextarea.value)"
+                    class="bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2 px-6 rounded-lg transition-colors">Actualizar
+                    Gráfica</button>
+                <div class="flex-1">
+                    @if (jsonError()) { <span class="text-red-400 bg-red-400/10 px-4 py-2 rounded-lg text-sm">{{
+                        jsonError() }}</span> }
+                    @if (jsonSuccess()) { <span
+                        class="text-emerald-400 bg-emerald-400/10 px-4 py-2 rounded-lg text-sm">¡Gráfica
+                        actualizada!</span> }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+`,
+styles: [`:host { display: block; }`]
+})
+export class App {
+startDate = new Date(2023, 4, 24);
+
+rawRecords = signal<ExamRecord[]>([
+    { date: new Date(2023, 11, 9), name: 'Database Modeling (IDBS01)', examsCount: 1, ects: 5, grade: '3,0' },
+    { date: new Date(2024, 1, 24), name: 'Software Eng. Principles (IGIS01)', examsCount: 2, ects: 5, grade: '2,0' },
+    { date: new Date(2024, 3, 27), name: 'OOP with Java (IOBP01)', examsCount: 3, ects: 5, grade: '2,0' },
+    { date: new Date(2024, 5, 8), name: 'Web Application Dev (IPWA01)', examsCount: 4, ects: 5, grade: '1,3' },
+    { date: new Date(2024, 9, 18), name: 'Requirements Engineering (IREN01)', examsCount: 5, ects: 5, grade: '1,7' },
+    { date: new Date(2025, 0, 3), name: 'Specification (ISPE01)', examsCount: 6, ects: 5, grade: '2,3' },
+    { date: new Date(2025, 1, 14), name: 'Software QA (IQSS01)', examsCount: 7, ects: 5, grade: '2,7' },
+    { date: new Date(2025, 2, 21), name: 'IT Architecture (IAMG01)', examsCount: 8, ects: 5, grade: '2,3' },
+    { date: new Date(2025, 6, 19), name: 'Data Structures (DLBCSDSJCL02)', examsCount: 9, ects: 5, grade: '1,0' },
+    { date: new Date(2025, 9, 20), name: 'Prog. Info Systems (IPWA02)', examsCount: 10, ects: 5, grade: '2,0' },
+    { date: new Date(2025, 11, 6), name: 'IT-Service Mgmt (IWSM01)', examsCount: 11, ects: 5, grade: '1,0' },
+    { date: new Date(2025, 11, 21), name: 'Intro to Academic Work (DLBWIRITT)', examsCount: 12, ects: 5, grade: '2,3' },
+    { date: new Date(2026, 0, 29), name: 'Project: Mobile SE (DLBCSEMSE02)', examsCount: 13, ects: 5, grade: '1,0' },
+    { date: new Date(2026, 1, 11), name: 'Algorithms & Data Structures (DLBIADPS01)', examsCount: 14, ects: 5, grade:
+    '1,0' },
+    { date: new Date(2026, 1, 28), name: 'Ethics and Sustainability (DLBSEPENIT)', examsCount: 15, ects: 5, grade: '2,3'
+    }
+    ]);
+
+    jsonContent = signal<string>('');
+        jsonError = signal<string>('');
+            jsonSuccess = signal<boolean>(false);
+
+                constructor() {
+                this.jsonContent.set(this.generateJson());
+                }
+
+                processedRecords = computed(() => {
+                const start = this.startDate.getTime();
+                return this.rawRecords().map(record => {
+                const days = Math.floor((record.date.getTime() - start) / (1000 * 3600 * 24));
+                return { ...record, daysFromStart: days };
+                });
+                });
+
+                currentExams = computed(() => this.processedRecords().length);
+
+                pace = computed(() => {
+                const records = this.processedRecords();
+                if (records.length === 0) return 0;
+                const lastRecord = records[records.length - 1];
+                return (lastRecord.daysFromStart || 0) / lastRecord.examsCount;
+                });
+
+                recentPace = computed(() => {
+                const records = this.processedRecords();
+                const n = Math.min(4, records.length - 1);
+                if (n <= 0) return this.pace(); const last=records[records.length - 1]; const
+                    prev=records[records.length - 1 - n]; return ((last.daysFromStart || 0) - (prev.daysFromStart || 0))
+                    / n; }); projectedDays=computed(()=> Math.floor(this.pace() * 36));
+                    recentProjectedDays = computed(() => {
+                    const records = this.processedRecords();
+                    if (records.length === 0) return 0;
+                    const last = records[records.length - 1];
+                    return (last.daysFromStart || 0) + Math.floor(this.recentPace() * (36 - last.examsCount));
+                    });
+
+                    projectedDate = computed(() => {
+                    const pDate = new Date(this.startDate.getTime());
+                    pDate.setDate(pDate.getDate() + this.projectedDays());
+                    return pDate;
+                    });
+
+                    recentProjectedDate = computed(() => {
+                    const pDate = new Date(this.startDate.getTime());
+                    pDate.setDate(pDate.getDate() + this.recentProjectedDays());
+                    return pDate;
+                    });
+
+                    svgWidth = 1000; svgHeight = 500;
+                    margin = { top: 40, right: 40, bottom: 60, left: 60 };
+                    innerWidth = this.svgWidth - this.margin.left - this.margin.right;
+                    innerHeight = this.svgHeight - this.margin.top - this.margin.bottom;
+
+                    dynamicMaxDays = computed(() => Math.max(2190, Math.max(this.projectedDays(),
+                    this.recentProjectedDays()) + 100));
+                    getX(days: number): number { return this.margin.left + (days / this.dynamicMaxDays()) *
+                    this.innerWidth; }
+                    getY(exams: number): number { return (this.margin.top + this.innerHeight) - (exams / 36) *
+                    this.innerHeight; }
+
+                    yAxisLevels = computed(() => [0, 6, 12, 18, 24, 30, 36]);
+                    xAxisYears = computed(() => {
+                    const years = [];
+                    const max = this.dynamicMaxDays();
+                    for (let d = 365, i = 1; d <= max; d +=365, i++) years.push({ days: d, label: `Año ${i}` }); return
+                        years; }); actualPath=computed(()=> {
+                        const records = this.processedRecords();
+                        if (records.length === 0) return '';
+                        let path = `M ${this.getX(0)} ${this.getY(0)}`;
+                        for (const r of records) path += ` L ${this.getX(r.daysFromStart || 0)}
+                        ${this.getY(r.examsCount)}`;
+                        return path;
+                        });
+
+                        projectionPath = computed(() => `M ${this.getX(0)} ${this.getY(0)} L
+                        ${this.getX(this.projectedDays())} ${this.getY(36)}`);
+                        recentProjectionPath = computed(() => {
+                        const records = this.processedRecords();
+                        if (records.length === 0) return '';
+                        const last = records[records.length - 1];
+                        return `M ${this.getX(last.daysFromStart || 0)} ${this.getY(last.examsCount)} L
+                        ${this.getX(this.recentProjectedDays())} ${this.getY(36)}`;
+                        });
+
+                        mappedPoints = computed(() => this.processedRecords().map(r => ({ x: this.getX(r.daysFromStart
+                        || 0), y: this.getY(r.examsCount), record: r })));
+
+                        hoveredData = signal<Point | null>(null);
+                            tooltipPos = signal({ x: 0, y: 0 });
+                            hoverPoint(point: Point | null, event: MouseEvent | null) {
+                            this.hoveredData.set(point);
+                            if (event && event.target) {
+                            const svgContainer = (event.target as
+                            Element).closest('.relative')?.getBoundingClientRect();
+                            if (svgContainer) this.tooltipPos.set({ x: event.clientX - svgContainer.left, y:
+                            event.clientY - svgContainer.top });
+                            }
+                            }
+
+                            generateJson(): string {
+                            return JSON.stringify(this.rawRecords().map(r => ({
+                            date: `${r.date.getFullYear()}-${String(r.date.getMonth() + 1).padStart(2,
+                            '0')}-${String(r.date.getDate()).padStart(2, '0')}`,
+                            name: r.name, examsCount: r.examsCount, ects: r.ects, grade: r.grade
+                            })), null, 2);
+                            }
+
+                            applyJson(jsonStr: string) {
+                            try {
+                            this.jsonError.set(''); this.jsonSuccess.set(false);
+                            const parsed = JSON.parse(jsonStr);
+                            const newRecords = parsed.map((item: any) => {
+                            const [y, m, d] = item.date.split('-');
+                            return { date: new Date(Number(y), Number(m) - 1, Number(d)), name: item.name, examsCount:
+                            Number(item.examsCount), ects: Number(item.ects), grade: String(item.grade) };
+                            });
+                            newRecords.sort((a, b) => a.date.getTime() - b.date.getTime());
+                            this.rawRecords.set(newRecords);
+                            this.jsonSuccess.set(true);
+                            setTimeout(() => this.jsonSuccess.set(false), 3000);
+                            } catch (e: any) { this.jsonError.set('Error en formato JSON. Revisa las comas.'); }
+                            }
+                            }

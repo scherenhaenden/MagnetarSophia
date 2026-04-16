@@ -1,0 +1,56 @@
+<main class="page-shell">
+  <section class="page-content">
+    <header class="hero-card">
+      <div>
+        <p class="eyebrow">Academic Analytics Workspace</p>
+        <h1>{{ projectTitle }}</h1>
+        <p class="subtitle">{{ degreeTitle }} progress analysis workspace</p>
+      </div>
+      <div class="hero-badges">
+        <span class="badge">Start: {{ startDate | date: 'dd MMM yyyy' }}</span>
+        <span class="badge badge-highlight">Target: {{ totalExamTarget }} exams / {{ totalEctsTarget }} ECTS</span>
+      </div>
+    </header>
+
+    <section class="stats-grid">
+      <article class="stat-card"><p class="stat-label">Completed exams</p><p class="stat-value">{{ currentExams() }} <span>/ {{ totalExamTarget }}</span></p></article>
+      <article class="stat-card"><p class="stat-label">Earned ECTS</p><p class="stat-value">{{ earnedEcts() }} <span>/ {{ totalEctsTarget }}</span></p></article>
+      <article class="stat-card"><p class="stat-label">Average pace</p><p class="stat-value">{{ pace() | number: '1.0-1' }} <span>days / exam</span></p></article>
+      <article class="stat-card"><p class="stat-label">Estimated finish</p><p class="stat-value">{{ projectedDate() | date: 'MMM yyyy' }}</p></article>
+    </section>
+
+    <section class="panel-card">
+      <div class="panel-header"><div><p class="eyebrow">Progress chart</p><h2>Days from start vs completed exams</h2></div></div>
+      <div class="chart-surface">
+        <svg class="chart-svg" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-label="Academic progress chart">
+          @for (level of yAxisLevels; track level) {
+            <line x1="60" [attr.y1]="getY(level)" x2="960" [attr.y2]="getY(level)" class="grid-line"></line>
+          }
+          @for (year of xAxisYears(); track year.days) {
+            <line [attr.x1]="getX(year.days)" y1="40" [attr.x2]="getX(year.days)" y2="440" class="grid-line"></line>
+          }
+          <line x1="60" y1="440" x2="960" y2="440" class="axis-line"></line>
+          <line x1="60" y1="40" x2="60" y2="440" class="axis-line"></line>
+          <path [attr.d]="projectionPath()" class="projection-line"></path>
+          <path [attr.d]="recentProjectionPath()" class="projection-line projection-line-recent"></path>
+          <path [attr.d]="actualPath()" class="actual-line"></path>
+          @for (point of mappedPoints(); track point.record.date.getTime()) {
+            <circle [attr.cx]="point.x" [attr.cy]="point.y" r="6" class="chart-point" (mouseenter)="hoverPoint(point, $event)" (mouseleave)="hoverPoint(null, null)"></circle>
+          }
+        </svg>
+      </div>
+    </section>
+
+    <section class="panel-card">
+      <div class="panel-header"><div><p class="eyebrow">Editable dataset</p><h2>JSON source</h2></div></div>
+      <textarea #jsonTextarea class="json-editor" [value]="jsonContent()"></textarea>
+      <div class="editor-toolbar">
+        <button type="button" class="primary-button" (click)="applyJson(jsonTextarea.value)">Update chart</button>
+        <div class="editor-feedback">
+          @if (jsonError()) {<span class="feedback-error">{{ jsonError() }}</span>}
+          @if (jsonSuccess()) {<span class="feedback-success">Chart data updated.</span>}
+        </div>
+      </div>
+    </section>
+  </section>
+</main>
