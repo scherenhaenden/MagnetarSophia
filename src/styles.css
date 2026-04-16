@@ -1,1 +1,23 @@
-/* You can add global styles to this file, and also import other style files */
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+  background: #051018;
+}
+
+body {
+  font-family: 'Space Grotesk', 'Segoe UI', sans-serif;
+  color: #e5eef9;
+}
+
+app-root {
+  display: block;
+  min-height: 100vh;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

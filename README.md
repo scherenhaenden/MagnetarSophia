@@ -1,59 +1,93 @@
 # MagnetarSophia
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.5.
+MagnetarSophia is an Angular 21 academic progress dashboard for tracking exam progress, ECTS accumulation, projected completion pace, and editable JSON-backed timeline data.
 
-## Development server
+Repository: `https://github.com/scherenhaenden/MagnetarSophia`
+Branch: `master`
 
-To start a local development server, run:
+## Current Scope
 
-```bash
-ng serve
-```
+The application currently includes:
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+- a typed academic progress domain model
+- an OOP-oriented progress service for projections, mapping, and JSON parsing
+- a standalone Angular dashboard component for rendering metrics and chart data
+- unit tests for the component and service
+- a dedicated coverage script with a required global threshold of `100%`
 
-## Code scaffolding
+## Project Structure
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+- `src/app/models/academic-progress.models.ts`: typed domain contracts
+- `src/app/services/academic-progress.service.ts`: academic progress logic
+- `src/app/services/academic-progress.service.spec.ts`: service tests
+- `src/app/app.ts`: standalone Angular dashboard component
+- `src/app/app.spec.ts`: component tests
+- `src/test-setup.ts`: Vitest Angular test bootstrap
+- `RULES.md`: mandatory project rules
+- `whole-example`: original source example kept as reference input
 
-```bash
-ng generate component component-name
-```
+## Scripts
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+Install dependencies:
 
 ```bash
-ng test
+npm install
 ```
 
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
+Run the dev server:
 
 ```bash
-ng e2e
+npm start
 ```
 
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
+Build the project:
 
-## Additional Resources
+```bash
+npm run build
+```
 
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Run the standard Angular test suite:
+
+```bash
+npm test -- --watch=false
+```
+
+Run coverage with enforced global thresholds:
+
+```bash
+npm run test:coverage
+```
+
+Run coverage in watch mode:
+
+```bash
+npm run test:coverage:watch
+```
+
+## Coverage Policy
+
+Coverage thresholds are configured in `vitest.config.ts` and are currently set to:
+
+- `lines: 100`
+- `functions: 100`
+- `branches: 100`
+- `statements: 100`
+
+If coverage drops below any threshold, the coverage command must fail.
+
+## Rules
+
+The authoritative coding rules are documented in `RULES.md`.
+
+Current mandatory rules include:
+
+1. Every method must be tested.
+2. Every method must be documented.
+3. Every method must declare a return type.
+4. The codebase must stay strongly typed.
+5. The codebase must stay extremely OOP-oriented.
+6. Every class member must declare an access modifier.
+
+## Current Status
+
+The current dashboard build passes, the regular test run passes, and the enforced coverage run passes with a `100%` threshold on the authored business-logic coverage scope configured in `vitest.config.ts`.
