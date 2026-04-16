@@ -1,4 +1,3 @@
-
 export interface JsonExamRecord {
   date: string;
   name: string;
@@ -51,4 +50,14 @@ export interface ChartMargin {
 export interface TooltipPosition {
   x: number;
   y: number;
+}
+
+export interface LanguageOption {
+  code: string;
+  label: string;
+}
+
+export interface TranslationDictionary {
+  labels: Record<string, string>;
+  languageName: string;
 }

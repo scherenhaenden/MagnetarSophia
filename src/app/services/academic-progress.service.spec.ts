@@ -1,4 +1,3 @@
-
 import { AcademicProgressService } from './academic-progress.service';
 import { ChartMargin, ExampleData, ExamRecord, ProcessedExamRecord } from '../models/academic-progress.models';
 
@@ -90,7 +89,7 @@ describe('AcademicProgressService', () => {
     ];
     const margin: ChartMargin = { top: 40, right: 40, bottom: 60, left: 60 };
 
-    expect(service.buildAxisYears(800)).toEqual([
+    expect(service.buildAxisYears(800, (index: number): string => `Year ${index}`)).toEqual([
       { days: 365, label: 'Year 1' },
       { days: 730, label: 'Year 2' },
     ]);

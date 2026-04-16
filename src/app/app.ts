@@ -1,67 +1,77 @@
-
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { AxisYear, ChartMargin, ChartPoint, ExampleData, ExamRecord, ProcessedExamRecord, TooltipPosition } from './models/academic-progress.models';
 import { AcademicProgressService } from './services/academic-progress.service';
+import { TranslationService } from './services/translation.service';
+import { AxisYear, ChartMargin, ChartPoint, ExampleData, ExamRecord, LanguageOption, ProcessedExamRecord, TooltipPosition, TranslationDictionary } from './models/academic-progress.models';
 
 @Component({
   selector: 'app-root',
   imports: [CommonModule],
   template: `
-<main class="page-shell">
+<main class="page-shell" [attr.dir]="isRightToLeft() ? 'rtl' : 'ltr'">
   <section class="page-content">
     <header class="hero-card">
       <div>
-        <p class="eyebrow">Academic Analytics Workspace</p>
+        <p class="eyebrow">{{ t('hero.workspace') }}</p>
         <h1>{{ appTitle() }}</h1>
         <p class="subtitle">{{ subtitle() }} · {{ degreeTitle() }} - {{ universityName() }}</p>
       </div>
-      <div class="hero-badges">
-        <span class="badge">Start: {{ startDate() | date: 'dd MMM yyyy' }}</span>
-        <span class="badge badge-highlight">Target: {{ totalEctsTarget() }} ECTS ({{ totalExamTarget() }} exams)</span>
+      <div class="hero-side">
+        <label class="language-switcher">
+          <span>{{ t('language.label') }}</span>
+          <select [value]="languageCode()" (change)="switchLanguage($any($event.target).value)">
+            @for (language of supportedLanguages; track language.code) {
+              <option [value]="language.code">{{ language.label }}</option>
+            }
+          </select>
+        </label>
+        <div class="hero-badges">
+          <span class="badge">{{ t('hero.start') }}: {{ formatDate(startDate()) }}</span>
+          <span class="badge badge-highlight">{{ t('hero.target') }}: {{ totalEctsTarget() }} ECTS ({{ totalExamTarget() }} {{ t('units.exams') }})</span>
+        </div>
       </div>
     </header>
 
     <section class="stats-grid">
       <article class="stat-card">
-        <p class="stat-label">Completed exams</p>
+        <p class="stat-label">{{ t('stats.completedExams') }}</p>
         <p class="stat-value">{{ currentExams() }} <span>/ {{ totalExamTarget() }}</span></p>
         <div class="progress-bar"><div class="progress-fill progress-fill-blue" [style.width.%]="(currentExams() / totalExamTarget()) * 100"></div></div>
       </article>
 
       <article class="stat-card">
-        <p class="stat-label">ECTS credits</p>
+        <p class="stat-label">{{ t('stats.ectsCredits') }}</p>
         <p class="stat-value">{{ earnedEcts() }} <span>/ {{ totalEctsTarget() }}</span></p>
         <div class="progress-bar"><div class="progress-fill progress-fill-indigo" [style.width.%]="(earnedEcts() / totalEctsTarget()) * 100"></div></div>
       </article>
 
       <article class="stat-card">
-        <p class="stat-label">Pace (days per exam)</p>
+        <p class="stat-label">{{ t('stats.pace') }}</p>
         <div class="dual-metric">
           <div>
-            <p class="mini-label">Historical</p>
-            <p class="metric-primary">{{ pace() | number: '1.0-1' }}</p>
-            <p class="metric-footnote">~{{ (pace() > 0 ? 365 / pace() : 0) | number: '1.1-1' }} exams/year</p>
+            <p class="mini-label">{{ t('stats.historical') }}</p>
+            <p class="metric-primary">{{ formatNumber(pace(), 1, 1) }}</p>
+            <p class="metric-footnote">~{{ formatNumber(pace() > 0 ? 365 / pace() : 0, 1, 1) }} {{ t('stats.examsPerYear') }}</p>
           </div>
           <div class="metric-accent">
-            <p class="mini-label">Recent trend</p>
-            <p class="metric-primary">{{ recentPace() | number: '1.0-1' }}</p>
-            <p class="metric-footnote">~{{ (recentPace() > 0 ? 365 / recentPace() : 0) | number: '1.1-1' }} exams/year</p>
+            <p class="mini-label">{{ t('stats.recentTrend') }}</p>
+            <p class="metric-primary">{{ formatNumber(recentPace(), 1, 1) }}</p>
+            <p class="metric-footnote">~{{ formatNumber(recentPace() > 0 ? 365 / recentPace() : 0, 1, 1) }} {{ t('stats.examsPerYear') }}</p>
           </div>
         </div>
         <div class="trend-bar"><div class="trend-fill"></div></div>
       </article>
 
       <article class="stat-card">
-        <p class="stat-label">Estimated finish</p>
+        <p class="stat-label">{{ t('stats.estimatedFinish') }}</p>
         <div class="dual-metric">
           <div>
-            <p class="mini-label">Global average</p>
-            <p class="metric-primary metric-sm">{{ projectedDate() | date: 'MMM yyyy' }}</p>
+            <p class="mini-label">{{ t('stats.globalAverage') }}</p>
+            <p class="metric-primary metric-sm">{{ formatMonthYear(projectedDate()) }}</p>
           </div>
           <div class="metric-accent">
-            <p class="mini-label">Recent trend</p>
-            <p class="metric-primary metric-sm">{{ recentProjectedDate() | date: 'MMM yyyy' }}</p>
+            <p class="mini-label">{{ t('stats.recentTrend') }}</p>
+            <p class="metric-primary metric-sm">{{ formatMonthYear(recentProjectedDate()) }}</p>
           </div>
         </div>
       </article>
@@ -70,21 +80,21 @@ import { AcademicProgressService } from './services/academic-progress.service';
     <section class="panel-card chart-card">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Progress curve</p>
-          <h2>Days vs completed exams</h2>
+          <p class="eyebrow">{{ t('chart.progressCurve') }}</p>
+          <h2>{{ t('chart.daysVsCompletedExams') }}</h2>
         </div>
         <div class="legend-list">
-          <span><i class="legend-dot legend-blue"></i> Real progress</span>
-          <span><i class="legend-dot legend-cyan legend-outline"></i> Recent trend</span>
-          <span><i class="legend-dot legend-slate legend-outline"></i> Historical trend</span>
-          <span><i class="legend-dot legend-green"></i> Ideal 3 years</span>
-          <span><i class="legend-dot legend-amber"></i> Ideal 4 years</span>
-          <span><i class="legend-dot legend-orange"></i> Ideal 6 years</span>
+          <span><i class="legend-dot legend-blue"></i> {{ t('chart.realProgress') }}</span>
+          <span><i class="legend-dot legend-cyan legend-outline"></i> {{ t('chart.recentTrend') }}</span>
+          <span><i class="legend-dot legend-slate legend-outline"></i> {{ t('chart.historicalTrend') }}</span>
+          <span><i class="legend-dot legend-green"></i> {{ t('chart.idealThreeYears') }}</span>
+          <span><i class="legend-dot legend-amber"></i> {{ t('chart.idealFourYears') }}</span>
+          <span><i class="legend-dot legend-orange"></i> {{ t('chart.idealSixYears') }}</span>
         </div>
       </div>
 
       <div class="chart-surface">
-        <svg class="chart-svg" viewBox="0 0 1000 500" preserveAspectRatio="none" aria-label="Academic progress chart">
+        <svg class="chart-svg" viewBox="0 0 1000 500" preserveAspectRatio="none" [attr.aria-label]="t('chart.ariaLabel')">
           @for (level of yAxisLevels; track level) {
             <line x1="60" [attr.y1]="getY(level)" x2="960" [attr.y2]="getY(level)" class="grid-line"></line>
             <text x="48" [attr.y]="getY(level) + 4" text-anchor="end" class="axis-label">{{ level }}</text>
@@ -118,11 +128,11 @@ import { AcademicProgressService } from './services/academic-progress.service';
             <p class="tooltip-title">{{ hoveredData()?.record?.name }}</p>
             <dl class="tooltip-grid">
               <div>
-                <dt>Date</dt>
-                <dd>{{ hoveredData()?.record?.date | date: 'dd.MM.yyyy' }}</dd>
+                <dt>{{ t('chart.date') }}</dt>
+                <dd>{{ formatTooltipDate(hoveredData()?.record?.date ?? startDate()) }}</dd>
               </div>
               <div>
-                <dt>Exam</dt>
+                <dt>{{ t('chart.exam') }}</dt>
                 <dd>{{ hoveredData()?.record?.examsCount }} / {{ totalExamTarget() }}</dd>
               </div>
               <div>
@@ -130,7 +140,7 @@ import { AcademicProgressService } from './services/academic-progress.service';
                 <dd>{{ hoveredData()?.record?.ects }}</dd>
               </div>
               <div>
-                <dt>Grade</dt>
+                <dt>{{ t('chart.grade') }}</dt>
                 <dd>{{ hoveredData()?.record?.grade }}</dd>
               </div>
             </dl>
@@ -142,19 +152,19 @@ import { AcademicProgressService } from './services/academic-progress.service';
     <section class="panel-card">
       <div class="panel-header">
         <div>
-          <p class="eyebrow">Editable dataset</p>
-          <h2>JSON source</h2>
+          <p class="eyebrow">{{ t('editor.editableDataset') }}</p>
+          <h2>{{ t('editor.jsonSource') }}</h2>
         </div>
-        <p class="panel-note">Data is synced to the transcript-style timeline. The 6-year ideal curve is enabled.</p>
+        <p class="panel-note">{{ t('editor.note') }}</p>
       </div>
 
-      <div class="info-card">The textarea below updates the chart and all projections after validation.</div>
+      <div class="info-card">{{ t('editor.info') }}</div>
       <textarea #jsonTextarea class="json-editor" [value]="jsonContent()"></textarea>
       <div class="editor-toolbar">
-        <button type="button" class="primary-button" (click)="applyJson(jsonTextarea.value)">Update chart</button>
+        <button type="button" class="primary-button" (click)="applyJson(jsonTextarea.value)">{{ t('editor.updateChart') }}</button>
         <div class="editor-feedback">
           @if (jsonError()) {<span class="feedback-error">{{ jsonError() }}</span>}
-          @if (jsonSuccess()) {<span class="feedback-success">Chart data updated.</span>}
+          @if (jsonSuccess()) {<span class="feedback-success">{{ t('editor.success') }}</span>}
         </div>
       </div>
     </section>
@@ -196,6 +206,29 @@ import { AcademicProgressService } from './services/academic-progress.service';
   justify-content: space-between;
   gap: 20px;
   align-items: flex-start;
+}
+.hero-side {
+  display: grid;
+  gap: 16px;
+  justify-items: end;
+}
+.language-switcher {
+  display: grid;
+  gap: 8px;
+  color: #acc2d3;
+  font-size: 0.84rem;
+}
+.language-switcher span {
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+.language-switcher select {
+  min-width: 190px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(126, 175, 207, 0.22);
+  background: rgba(4, 17, 26, 0.92);
+  color: #e5eef9;
 }
 .eyebrow {
   margin: 0 0 10px;
@@ -547,6 +580,9 @@ h2 {
   .dual-metric {
     flex-direction: column;
   }
+  .hero-side {
+    justify-items: start;
+  }
   .hero-badges {
     justify-content: flex-start;
   }
@@ -568,13 +604,17 @@ export class App implements OnInit {
   public readonly totalExamTarget = signal<number>(36);
   public readonly totalEctsTarget = signal<number>(180);
   public readonly startDate = signal<Date>(new Date(2023, 4, 24));
-  public readonly svgWidth = 1000;
-  public readonly svgHeight = 500;
+  public readonly languageCode = signal<string>('en');
+  public readonly translations = signal<TranslationDictionary>({ labels: {}, languageName: 'English' });
+  public readonly svgWidth: number = 1000;
+  public readonly svgHeight: number = 500;
   public readonly margin: ChartMargin = { top: 40, right: 40, bottom: 60, left: 60 };
-  public readonly innerWidth = this.svgWidth - this.margin.left - this.margin.right;
-  public readonly innerHeight = this.svgHeight - this.margin.top - this.margin.bottom;
+  public readonly innerWidth: number = this.svgWidth - this.margin.left - this.margin.right;
+  public readonly innerHeight: number = this.svgHeight - this.margin.top - this.margin.bottom;
   public readonly yAxisLevels: number[] = [0, 6, 12, 18, 24, 30, 36];
   protected readonly academicProgressService = inject(AcademicProgressService);
+  protected readonly translationService = inject(TranslationService);
+  public readonly supportedLanguages: LanguageOption[] = this.translationService.getSupportedLanguages();
   public readonly rawRecords = signal<ExamRecord[]>([]);
   public readonly jsonContent = signal<string>('[]');
   public readonly jsonError = signal<string>('');
@@ -591,21 +631,30 @@ export class App implements OnInit {
   public readonly projectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate(), this.projectedDays()));
   public readonly recentProjectedDate = computed<Date>(() => this.academicProgressService.calculateProjectedDate(this.startDate(), this.recentProjectedDays()));
   public readonly dynamicMaxDays = computed<number>(() => this.academicProgressService.calculateDynamicMaxDays(2190, this.projectedDays(), this.recentProjectedDays()));
-  public readonly xAxisYears = computed<AxisYear[]>(() => this.academicProgressService.buildAxisYears(this.dynamicMaxDays()));
+  public readonly xAxisYears = computed<AxisYear[]>(() => this.academicProgressService.buildAxisYears(this.dynamicMaxDays(), (index: number) => this.t('chart.yearLabel', { index: String(index) })));
   public readonly mappedPoints = computed<ChartPoint[]>(() => this.academicProgressService.mapPoints(this.processedRecords(), this.dynamicMaxDays(), this.totalExamTarget(), this.margin, this.innerWidth, this.innerHeight));
   public readonly actualPath = computed<string>(() => this.academicProgressService.buildActualPath(this.mappedPoints(), this.getX(0), this.getY(0)));
   public readonly projectionPath = computed<string>(() => this.academicProgressService.buildProjectionPath(this.getX(0), this.getY(0), this.getX(this.projectedDays()), this.getY(this.totalExamTarget())));
   public readonly recentProjectionPath = computed<string>(() => {
-    const points = this.mappedPoints();
-    if (points.length === 0) return '';
-    const lastPoint = points[points.length - 1];
+    const points: ChartPoint[] = this.mappedPoints();
+    if (points.length === 0) {
+      return '';
+    }
+
+    const lastPoint: ChartPoint = points[points.length - 1];
     return this.academicProgressService.buildProjectionPath(lastPoint.x, lastPoint.y, this.getX(this.recentProjectedDays()), this.getY(this.totalExamTarget()));
   });
 
   public async ngOnInit(): Promise<void> {
-    const response: Response = await fetch('/example.json');
+    const initialLanguageCode: string = this.translationService.resolveLanguage([this.translationService.getStoredLanguage(), ...this.getBrowserLanguages()]);
+    const [response, dictionary]: [Response, TranslationDictionary] = await Promise.all([
+      fetch('/example.json'),
+      this.translationService.loadLanguage(initialLanguageCode),
+    ]);
     const data: ExampleData = await response.json();
-    const parsed = this.academicProgressService.parseExampleData(data);
+    const parsed: { startDate: Date; records: ExamRecord[] } = this.academicProgressService.parseExampleData(data);
+
+    this.setLanguageState(initialLanguageCode, dictionary);
     this.appTitle.set(data.appTitle);
     this.subtitle.set(data.subtitle);
     this.degreeTitle.set(data.degreeTitle);
@@ -615,6 +664,36 @@ export class App implements OnInit {
     this.startDate.set(parsed.startDate);
     this.rawRecords.set(parsed.records);
     this.jsonContent.set(this.academicProgressService.buildJson(parsed.records));
+  }
+
+  public async switchLanguage(languageCode: string): Promise<void> {
+    const resolvedLanguageCode: string = this.translationService.resolveLanguage([languageCode]);
+    const dictionary: TranslationDictionary = await this.translationService.loadLanguage(resolvedLanguageCode);
+    this.setLanguageState(resolvedLanguageCode, dictionary);
+  }
+
+  public t(key: string, params: Record<string, string> = {}): string {
+    return this.translationService.translate(this.translations(), key, params);
+  }
+
+  public isRightToLeft(): boolean {
+    return this.translationService.isRightToLeft(this.languageCode());
+  }
+
+  public formatDate(date: Date): string {
+    return new Intl.DateTimeFormat(this.languageCode(), { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
+  }
+
+  public formatMonthYear(date: Date): string {
+    return new Intl.DateTimeFormat(this.languageCode(), { month: 'short', year: 'numeric' }).format(date);
+  }
+
+  public formatTooltipDate(date: Date): string {
+    return new Intl.DateTimeFormat(this.languageCode(), { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
+  }
+
+  public formatNumber(value: number, minimumFractionDigits: number, maximumFractionDigits: number): string {
+    return new Intl.NumberFormat(this.languageCode(), { minimumFractionDigits, maximumFractionDigits }).format(value);
   }
 
   public getX(days: number): number {
@@ -631,14 +710,19 @@ export class App implements OnInit {
 
   public hoverPoint(point: ChartPoint | null, event: MouseEvent | null): void {
     this.hoveredData.set(point);
-    if (!event) return;
-    const tooltipPosition = this.academicProgressService.getTooltipPosition(event);
-    if (tooltipPosition) this.tooltipPos.set(tooltipPosition);
+    if (!event) {
+      return;
+    }
+
+    const tooltipPosition: TooltipPosition | null = this.academicProgressService.getTooltipPosition(event);
+    if (tooltipPosition) {
+      this.tooltipPos.set(tooltipPosition);
+    }
   }
 
   public applyJson(json: string): void {
     try {
-      const parsedRecords = this.academicProgressService.parseJson(json);
+      const parsedRecords: ExamRecord[] = this.academicProgressService.parseJson(json);
       this.jsonError.set('');
       this.jsonSuccess.set(true);
       this.rawRecords.set(parsedRecords);
@@ -646,7 +730,28 @@ export class App implements OnInit {
       setTimeout((): void => this.jsonSuccess.set(false), 3000);
     } catch {
       this.jsonSuccess.set(false);
-      this.jsonError.set('JSON parsing failed. Review the date and comma structure.');
+      this.jsonError.set(this.t('editor.error'));
+    }
+  }
+
+  public getBrowserLanguages(): string[] {
+    if (typeof navigator === 'undefined') {
+      return [];
+    }
+
+    if (Array.isArray(navigator.languages) && navigator.languages.length > 0) {
+      return navigator.languages;
+    }
+
+    return navigator.language ? [navigator.language] : [];
+  }
+
+  private setLanguageState(languageCode: string, dictionary: TranslationDictionary): void {
+    this.languageCode.set(languageCode);
+    this.translations.set(dictionary);
+    this.translationService.setStoredLanguage(languageCode);
+    if (this.jsonError()) {
+      this.jsonError.set(this.t('editor.error'));
     }
   }
 }
