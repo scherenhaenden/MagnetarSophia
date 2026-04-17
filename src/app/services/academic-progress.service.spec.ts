@@ -105,6 +105,26 @@ describe('AcademicProgressService', () => {
     expect((): ExamRecord[] => service.parseJson('{"invalid":true}')).toThrowError('The provided JSON must describe an array of records.');
   });
 
+  it('should parse json input as either records or full datasets', (): void => {
+    expect(service.parseJsonInput('[{"date":"2024-01-02","name":"Exam","examsCount":1,"ects":5,"grade":"1,0"}]').records.length).toBe(1);
+
+    const datasetResult = service.parseJsonInput(JSON.stringify({
+      appTitle: 'MagnetarSophia',
+      subtitle: 'Graduate Progress Observatory',
+      degreeTitle: 'M.Sc. Data Science and Intelligent Systems',
+      universityName: 'Technical University of Munich',
+      startDate: '2024-10-01',
+      totalExamTarget: 24,
+      totalEctsTarget: 120,
+      records: [{ date: '2025-01-02', name: 'Exam', examsCount: 1, ects: 5, grade: '1,0' }]
+    }));
+
+    expect(datasetResult.dataset?.universityName).toBe('Technical University of Munich');
+    expect(datasetResult.records.length).toBe(1);
+    expect(() => service.parseJsonInput('null')).toThrowError('The provided JSON must describe an array of records or a full example dataset.');
+    expect(() => service.parseJsonInput('{"invalid":true}')).toThrowError('The provided JSON must describe an array of records or a full example dataset.');
+  });
+
   it('should resolve tooltip positions only for chart targets', (): void => {
     const chartSurface = document.createElement('div');
     const target = document.createElement('div');

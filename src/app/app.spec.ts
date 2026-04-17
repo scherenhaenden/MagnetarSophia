@@ -219,8 +219,38 @@ describe('App', () => {
     expect(app.jsonSuccess()).toBe(true);
   });
 
+  it('should apply a full example dataset and update metadata', (): void => {
+    app.applyJson(JSON.stringify({
+      appTitle: 'MagnetarSophia',
+      subtitle: 'Graduate Progress Observatory',
+      degreeTitle: 'M.Sc. Data Science and Intelligent Systems',
+      universityName: 'Technical University of Munich',
+      startDate: '2024-10-01',
+      totalExamTarget: 24,
+      totalEctsTarget: 120,
+      records: [
+        { date: '2025-01-10', name: 'Module A', examsCount: 1, ects: 5, grade: '1,3' },
+        { date: '2025-02-14', name: 'Module B', examsCount: 2, ects: 5, grade: '1,7' }
+      ]
+    }));
+
+    expect(app.universityName()).toBe('Technical University of Munich');
+    expect(app.degreeTitle()).toBe('M.Sc. Data Science and Intelligent Systems');
+    expect(app.totalEctsTarget()).toBe(120);
+    expect(app.totalExamTarget()).toBe(24);
+    expect(app.rawRecords().length).toBe(2);
+    expect(app.jsonError()).toBe('');
+  });
+
   it('should report invalid json data using the active translation', (): void => {
     app.applyJson('{');
+
+    expect(app.jsonSuccess()).toBe(false);
+    expect(app.jsonError()).toContain('JSON konnte nicht verarbeitet werden');
+  });
+
+  it('should reject unsupported json shapes', (): void => {
+    app.applyJson('{"unexpected":true}');
 
     expect(app.jsonSuccess()).toBe(false);
     expect(app.jsonError()).toContain('JSON konnte nicht verarbeitet werden');

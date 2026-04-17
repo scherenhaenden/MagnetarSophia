@@ -131,6 +131,27 @@ export class AcademicProgressService {
     return this.sortRecords(parsed.map((item: JsonExamRecord) => this.mapJsonRecord(item)));
   }
 
+  public parseJsonInput(json: string): { dataset: ExampleData | null; records: ExamRecord[] } {
+    const parsed: unknown = JSON.parse(json);
+
+    if (Array.isArray(parsed)) {
+      return {
+        dataset: null,
+        records: this.sortRecords(parsed.map((item: JsonExamRecord) => this.mapJsonRecord(item))),
+      };
+    }
+
+    if (this.isExampleData(parsed)) {
+      const parsedDataset = this.parseExampleData(parsed);
+      return {
+        dataset: parsed,
+        records: parsedDataset.records,
+      };
+    }
+
+    throw new Error('The provided JSON must describe an array of records or a full example dataset.');
+  }
+
   public getTooltipPosition(event: MouseEvent): TooltipPosition | null {
     const target: Element | null = event.target instanceof Element ? event.target : null;
     const chartArea: HTMLElement | null = target?.closest('.chart-surface') as HTMLElement | null;
@@ -143,5 +164,21 @@ export class AcademicProgressService {
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     };
+  }
+
+  private isExampleData(value: unknown): value is ExampleData {
+    if (typeof value !== 'object' || value === null) {
+      return false;
+    }
+
+    const candidate: Partial<ExampleData> = value as Partial<ExampleData>;
+    return typeof candidate.appTitle === 'string'
+      && typeof candidate.subtitle === 'string'
+      && typeof candidate.degreeTitle === 'string'
+      && typeof candidate.universityName === 'string'
+      && typeof candidate.startDate === 'string'
+      && typeof candidate.totalExamTarget === 'number'
+      && typeof candidate.totalEctsTarget === 'number'
+      && Array.isArray(candidate.records);
   }
 }

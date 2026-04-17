@@ -722,11 +722,25 @@ export class App implements OnInit {
 
   public applyJson(json: string): void {
     try {
-      const parsedRecords: ExamRecord[] = this.academicProgressService.parseJson(json);
+      const parsedInput: { dataset: ExampleData | null; records: ExamRecord[] } = this.academicProgressService.parseJsonInput(json);
       this.jsonError.set('');
       this.jsonSuccess.set(true);
-      this.rawRecords.set(parsedRecords);
-      this.jsonContent.set(this.academicProgressService.buildJson(parsedRecords));
+
+      if (parsedInput.dataset) {
+        const parsedDataset: { startDate: Date; records: ExamRecord[] } = this.academicProgressService.parseExampleData(parsedInput.dataset);
+        this.appTitle.set(parsedInput.dataset.appTitle);
+        this.subtitle.set(parsedInput.dataset.subtitle);
+        this.degreeTitle.set(parsedInput.dataset.degreeTitle);
+        this.universityName.set(parsedInput.dataset.universityName);
+        this.totalExamTarget.set(parsedInput.dataset.totalExamTarget);
+        this.totalEctsTarget.set(parsedInput.dataset.totalEctsTarget);
+        this.startDate.set(parsedDataset.startDate);
+        this.rawRecords.set(parsedDataset.records);
+        this.jsonContent.set(this.academicProgressService.buildJson(parsedDataset.records));
+      } else {
+        this.rawRecords.set(parsedInput.records);
+        this.jsonContent.set(this.academicProgressService.buildJson(parsedInput.records));
+      }
       setTimeout((): void => this.jsonSuccess.set(false), 3000);
     } catch {
       this.jsonSuccess.set(false);
